@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.local-lamps</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>LAMPS_CONFIG</key>
+        <string>/Users/YOUR_USER/local-lamps/config/lamps.yaml</string>
+    </dict>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/YOUR_USER/.local/bin/uv</string>
+        <string>run</string>
+        <string>uvicorn</string>
+        <string>src.main:app</string>
+        <string>--host</string>
+        <string>0.0.0.0</string>
+        <string>--port</string>
+        <string>8000</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/YOUR_USER/local-lamps/lamp-service</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/YOUR_USER/Library/Logs/local-lamps.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/YOUR_USER/Library/Logs/local-lamps.err</string>
+
+</dict>
+</plist>

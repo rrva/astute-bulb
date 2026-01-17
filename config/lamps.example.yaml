@@ -1,0 +1,50 @@
+# Lamp Configuration
+# Copy this file to lamps.yaml and fill in your device details
+# See README.md "Extract Local Keys" section for how to get device IDs, IPs, and local keys
+
+# Service configuration
+service:
+  host: "0.0.0.0"
+  port: 8000
+  # Optional: Location for solar circadian lighting sync (default is Stockholm)
+  # location:
+  #   latitude: 59.33
+  #   longitude: 18.07
+  #   timezone: "Europe/Stockholm"
+  #   elevation: 0
+
+# Lamp definitions
+# Each lamp needs:
+#   - id: unique identifier (used in API endpoints)
+#   - name: human-readable name (shown in Google Home)
+#   - device_id: Tuya device ID (from key extraction)
+#   - ip: Local IP address of the lamp
+#   - local_key: Encryption key (from key extraction)
+#   - version: Tuya protocol version (usually 3.5 for Ledvance)
+
+lamps:
+  - id: living_room
+    name: "Living Room Light"
+    device_id: "YOUR_DEVICE_ID_1"
+    ip: "192.168.1.100"
+    local_key: "YOUR_LOCAL_KEY_1"
+    version: "3.5"
+    # Optional: specify lamp capabilities
+    # supports_color: true
+    # supports_color_temp: true
+    # min_color_temp: 2200
+    # max_color_temp: 5000
+
+  - id: bedroom
+    name: "Bedroom Light"
+    device_id: "YOUR_DEVICE_ID_2"
+    ip: "192.168.1.101"
+    local_key: "YOUR_LOCAL_KEY_2"
+    version: "3.5"
+
+  - id: office
+    name: "Office Light"
+    device_id: "YOUR_DEVICE_ID_3"
+    ip: "192.168.1.102"
+    local_key: "YOUR_LOCAL_KEY_3"
+    version: "3.5"

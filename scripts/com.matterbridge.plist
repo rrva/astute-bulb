@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.matterbridge</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/YOUR_USER/.npm-global/bin/matterbridge</string>
+        <string>-bridge</string>
+        <string>-frontend</string>
+        <string>8283</string>
+        <string>-mdnsinterface</string>
+        <string>en1</string>
+        <string>-ipv4address</string>
+        <string>YOUR_IP</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/YOUR_USER/Library/Logs/matterbridge.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/YOUR_USER/Library/Logs/matterbridge.err</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/YOUR_USER/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>/Users/YOUR_USER</string>
+    </dict>
+</dict>
+</plist>

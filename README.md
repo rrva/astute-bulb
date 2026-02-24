@@ -92,6 +92,9 @@ Quick version:
 # Install Matterbridge
 npm install -g matterbridge matterbridge-webhooks
 
+# Verify binary is on PATH
+which matterbridge
+
 # Start Matterbridge
 matterbridge
 ```
@@ -114,7 +117,8 @@ Logs: `~/Library/Logs/local-lamps.log`, `~/Library/Logs/local-lamps.err`
 
 ### Matterbridge
 
-The Matterbridge plist also requires replacing `YOUR_IP` with your Mac's local IP address (for Matter mDNS advertisement).
+The Matterbridge plist requires replacing `YOUR_IP` with your Mac's local IP address (for Matter mDNS advertisement).
+It runs `matterbridge` via `/usr/bin/env`, so make sure `which matterbridge` works first.
 
 ```bash
 sudo cp scripts/com.matterbridge.plist /Library/LaunchDaemons/

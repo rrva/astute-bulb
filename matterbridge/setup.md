@@ -20,6 +20,9 @@ npm install -g matterbridge
 
 ```bash
 npm install -g matterbridge-webhooks
+
+# Verify the binary is available
+which matterbridge
 ```
 
 3. **Start Matterbridge:**

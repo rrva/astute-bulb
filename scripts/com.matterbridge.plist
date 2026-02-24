@@ -6,7 +6,8 @@
     <string>com.matterbridge</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/YOUR_USER/.npm-global/bin/matterbridge</string>
+        <string>/usr/bin/env</string>
+        <string>matterbridge</string>
         <string>-bridge</string>
         <string>-frontend</string>
         <string>8283</string>

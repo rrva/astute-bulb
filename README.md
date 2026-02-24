@@ -4,6 +4,12 @@ Local control solution for Ledvance Sun@Home lamps with Google Home integration.
 
 **No cloud dependency for lamp control** - only Google's voice recognition uses the cloud; all lamp commands travel locally on your network.
 
+## Why
+
+The Ledvance Sun@Home lamps are great hardware, but the cloud-based control through the Ledvance/Tuya app has real problems. Commands sometimes lag noticeably, and occasionally lamps just fail to turn on or off — not what you want when flipping lights before bed. By talking directly to the lamps over your local network using the Tuya protocol, commands are fast and reliable.
+
+This project also adds proper circadian lighting. When you turn a lamp on, it automatically matches its color temperature and brightness to the current sun position — warm and dim in the evening, bright and cool during the day. And while lamps stay on, a background task continuously adjusts them to follow the sun, so your lighting shifts naturally throughout the day without you touching anything.
+
 ## Architecture
 
 ```

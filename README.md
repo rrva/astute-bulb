@@ -102,7 +102,7 @@ Open http://localhost:8283, configure webhooks for your lamps, then pair with Go
 
 The `scripts/` directory includes launchd plist templates to run services automatically. All contain `YOUR_USER` placeholders that must be replaced with your macOS username.
 
-### Lamp Service (system daemon, requires root)
+### Lamp Service
 
 ```bash
 sudo cp scripts/com.local-lamps.plist /Library/LaunchDaemons/
@@ -112,7 +112,7 @@ sudo launchctl load -w /Library/LaunchDaemons/com.local-lamps.plist
 
 Logs: `~/Library/Logs/local-lamps.log`, `~/Library/Logs/local-lamps.err`
 
-### Matterbridge (system daemon, requires root)
+### Matterbridge
 
 The Matterbridge plist also requires replacing `YOUR_IP` with your Mac's local IP address (for Matter mDNS advertisement).
 
@@ -125,7 +125,7 @@ sudo launchctl load -w /Library/LaunchDaemons/com.matterbridge.plist
 
 Logs: `~/Library/Logs/matterbridge.log`, `~/Library/Logs/matterbridge.err`
 
-### Static ARP Entries (system daemon, requires root)
+### Static ARP Entries
 
 Keeps Tuya devices reachable by loading static ARP entries at boot. See [Troubleshooting](#lamps-unreachable-or-timing-out-arp-issue) for why this is needed.
 

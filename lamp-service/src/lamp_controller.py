@@ -307,16 +307,6 @@ class LampController:
             self._reset_connection()
             return LampState(id=self.config.id, name=self.config.name, online=False)
 
-    def turn_on(self) -> bool:
-        def cmd(device):
-            return device.set_status(True, switch=DPS_POWER)
-
-        success = self._send_command("turn_on", cmd)
-        logger.info(f"Turn on {self.config.id}: {'OK' if success else 'FAILED'}")
-        if success:
-            self._last_scene = None  # force next scene send
-        return success
-
     def turn_on_with_scene(self, brightness: int, color_temp: int, force: bool = False) -> bool:
         """Turn on lamp with specific brightness and color temperature.
 
@@ -417,9 +407,6 @@ class LampManager:
 
     def get_controller(self, lamp_id: str) -> LampController | None:
         return self._controllers.get(lamp_id)
-
-    def get_all_ids(self) -> list[str]:
-        return list(self._controllers.keys())
 
     def get_all_controllers(self) -> list[LampController]:
         return list(self._controllers.values())

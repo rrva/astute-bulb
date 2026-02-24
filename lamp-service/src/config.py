@@ -52,11 +52,3 @@ def load_config(config_path: Path | None = None) -> AppConfig:
     lamp_configs = [LampConfig(**lamp) for lamp in lamps_data]
 
     return AppConfig(service=service_config, lamps=lamp_configs)
-
-
-def get_lamp_by_id(config: AppConfig, lamp_id: str) -> LampConfig | None:
-    """Get a lamp configuration by its ID."""
-    for lamp in config.lamps:
-        if lamp.id == lamp_id:
-            return lamp
-    return None

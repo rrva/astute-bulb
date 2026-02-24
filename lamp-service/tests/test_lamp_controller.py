@@ -130,6 +130,30 @@ class TestTurnOnWithScene:
             # 3 calls: scene, off, scene again
             assert mock_send.call_count == 3
 
+    @pytest.mark.parametrize(
+        ("method_name", "method_args"),
+        [
+            ("set_brightness", (42,)),
+            ("set_color_temp", (3200,)),
+            ("set_color", (128, 64, 32, 50)),
+        ],
+    )
+    def test_manual_setters_clear_scene_cache(self, lamp_config, method_name, method_args):
+        """Manual changes should force the next solar scene write even if values match."""
+        controller = LampController(lamp_config)
+        method = getattr(controller, method_name)
+
+        with patch.object(controller, "_send_command", return_value=True) as mock_send:
+            controller.turn_on_with_scene(brightness=50, color_temp=3000)
+            assert mock_send.call_count == 1
+
+            assert method(*method_args) is True
+            assert mock_send.call_count == 2
+
+            # Must resend after manual override even if same scene is requested.
+            controller.turn_on_with_scene(brightness=50, color_temp=3000)
+            assert mock_send.call_count == 3
+
 
 class TestErr914Detection:
     def test_not_stuck_initially(self, lamp_config):

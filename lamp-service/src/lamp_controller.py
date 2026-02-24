@@ -366,6 +366,9 @@ class LampController:
         success = self._send_command("set_brightness", cmd)
         result = "OK" if success else "FAILED"
         logger.info(f"Set brightness {self.config.id} to {brightness}%: {result}")
+        if success:
+            # Manual changes should not block the next solar scene re-assertion.
+            self._last_scene = None
         return success
 
     def set_color_temp(self, kelvin: int) -> bool:
@@ -379,6 +382,9 @@ class LampController:
         success = self._send_command("set_color_temp", cmd)
         result = "OK" if success else "FAILED"
         logger.info(f"Set color temp {self.config.id} to {kelvin}K: {result}")
+        if success:
+            # Manual changes should not block the next solar scene re-assertion.
+            self._last_scene = None
         return success
 
     def set_color(self, red: int, green: int, blue: int, brightness: int | None = None) -> bool:
@@ -391,6 +397,9 @@ class LampController:
 
         success = self._send_command("set_color", cmd)
         logger.info(f"Set color {self.config.id}: {'OK' if success else 'FAILED'}")
+        if success:
+            # Manual changes should not block the next solar scene re-assertion.
+            self._last_scene = None
         return success
 
     def close(self):

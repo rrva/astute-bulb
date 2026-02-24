@@ -27,6 +27,20 @@ def test_lamp_config_defaults():
     assert config.max_color_temp == 5000
 
 
+def test_lamp_config_rejects_invalid_color_temp_range():
+    """max_color_temp must be greater than min_color_temp."""
+    with pytest.raises(ValueError, match="max_color_temp must be greater than min_color_temp"):
+        LampConfig(
+            id="test",
+            name="Test Lamp",
+            device_id="abc123",
+            ip="192.168.1.100",
+            local_key="0123456789abcdef",
+            min_color_temp=5000,
+            max_color_temp=5000,
+        )
+
+
 def test_lamp_state_offline():
     """Test offline lamp state."""
     state = LampState(id="test", name="Test Lamp", online=False)

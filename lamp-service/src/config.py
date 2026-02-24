@@ -41,7 +41,12 @@ def load_config(config_path: Path | None = None) -> AppConfig:
         config_path = find_config_file()
 
     with open(config_path) as f:
-        raw_config = yaml.safe_load(f)
+        raw_config = yaml.safe_load(f) or {}
+
+    if not isinstance(raw_config, dict):
+        raise ValueError(
+            f"Configuration in {config_path} must contain a YAML mapping at the top level."
+        )
 
     # Parse service config
     service_data = raw_config.get("service", {})

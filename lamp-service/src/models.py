@@ -1,6 +1,6 @@
 """Pydantic models for lamp configuration and API responses."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class LampConfig(BaseModel):
@@ -16,6 +16,12 @@ class LampConfig(BaseModel):
     supports_color_temp: bool = Field(default=True, description="Supports color temperature")
     min_color_temp: int = Field(default=2200, description="Minimum color temperature in Kelvin")
     max_color_temp: int = Field(default=5000, description="Maximum color temperature in Kelvin")
+
+    @model_validator(mode="after")
+    def validate_color_temp_range(self):
+        if self.max_color_temp <= self.min_color_temp:
+            raise ValueError("max_color_temp must be greater than min_color_temp")
+        return self
 
 
 class LocationConfig(BaseModel):

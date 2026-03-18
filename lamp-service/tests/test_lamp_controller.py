@@ -1,5 +1,6 @@
-"""Tests for LampController.turn_on_with_scene."""
+"""Tests for LampController."""
 
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -224,3 +225,96 @@ class TestWriteCommands:
             assert dps[key] == value
         for key in required_keys:
             assert key in dps
+
+
+class TestHoldMechanism:
+    def test_manual_brightness_engages_hold(self, lamp_config):
+        controller = LampController(lamp_config)
+        with patch.object(controller, "_send_command", return_value=True):
+            controller.set_brightness(80)
+        assert controller.is_held
+        assert controller._hold_reason == "manual"
+
+    def test_manual_color_temp_engages_hold(self, lamp_config):
+        controller = LampController(lamp_config)
+        with patch.object(controller, "_send_command", return_value=True):
+            controller.set_color_temp(3000)
+        assert controller.is_held
+        assert controller._hold_reason == "manual"
+
+    def test_manual_color_engages_hold(self, lamp_config):
+        controller = LampController(lamp_config)
+        with patch.object(controller, "_send_command", return_value=True):
+            controller.set_color(255, 0, 0)
+        assert controller.is_held
+        assert controller._hold_reason == "manual"
+
+    def test_turn_off_releases_hold(self, lamp_config):
+        controller = LampController(lamp_config)
+        with patch.object(controller, "_send_command", return_value=True):
+            controller.set_brightness(80)
+            assert controller.is_held
+            controller.turn_off()
+        assert not controller.is_held
+
+    def test_user_turn_on_releases_hold(self, lamp_config):
+        controller = LampController(lamp_config)
+        with patch.object(controller, "_send_command", return_value=True):
+            controller.set_brightness(80)
+            assert controller.is_held
+            controller.turn_on_with_scene(50, 3000, source="user")
+        assert not controller.is_held
+
+    def test_solar_skips_when_held(self, lamp_config):
+        controller = LampController(lamp_config)
+        with patch.object(controller, "_send_command", return_value=True) as mock_send:
+            controller.set_brightness(80)
+            mock_send.reset_mock()
+
+            result = controller.turn_on_with_scene(50, 3000, source="solar")
+        assert result is True
+        mock_send.assert_not_called()
+
+    def test_solar_sends_when_not_held(self, lamp_config):
+        controller = LampController(lamp_config)
+        with patch.object(controller, "_send_command", return_value=True) as mock_send:
+            result = controller.turn_on_with_scene(50, 3000, source="solar")
+        assert result is True
+        mock_send.assert_called_once()
+
+    def test_hold_timeout_expires(self, lamp_config, monkeypatch):
+        controller = LampController(lamp_config, default_hold_timeout=60)
+        fake_time = time.time()
+        monkeypatch.setattr(time, "time", lambda: fake_time)
+
+        with patch.object(controller, "_send_command", return_value=True):
+            controller.set_brightness(80)
+        assert controller.is_held
+
+        # Advance time past timeout
+        monkeypatch.setattr(time, "time", lambda: fake_time + 61)
+        assert not controller.is_held
+
+    def test_hold_no_timeout_persists(self, lamp_config):
+        controller = LampController(lamp_config, default_hold_timeout=None)
+        with patch.object(controller, "_send_command", return_value=True):
+            controller.set_brightness(80)
+        # Hold with no timeout should persist (timeout=None means indefinite)
+        assert controller.is_held
+        assert controller._hold_timeout is None
+
+    def test_set_scene_engages_hold(self, lamp_config):
+        controller = LampController(lamp_config)
+        with patch.object(controller, "_send_command", return_value=True):
+            controller.set_scene(80, 3000, "dinner", timeout=10800)
+        assert controller.is_held
+        assert controller._hold_reason == "scene:dinner"
+        assert controller._hold_timeout == 10800
+
+    def test_release_hold(self, lamp_config):
+        controller = LampController(lamp_config)
+        with patch.object(controller, "_send_command", return_value=True):
+            controller.set_brightness(80)
+        assert controller.is_held
+        controller.release_hold()
+        assert not controller.is_held

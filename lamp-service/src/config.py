@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-from .models import AppConfig, LampConfig, ServiceConfig
+from .models import AppConfig, LampConfig, SceneConfig, ServiceConfig
 
 
 def find_config_file() -> Path:
@@ -56,4 +56,8 @@ def load_config(config_path: Path | None = None) -> AppConfig:
     lamps_data = raw_config.get("lamps", [])
     lamp_configs = [LampConfig(**lamp) for lamp in lamps_data]
 
-    return AppConfig(service=service_config, lamps=lamp_configs)
+    # Parse scene configs
+    scenes_data = raw_config.get("scenes", [])
+    scene_configs = [SceneConfig(**scene) for scene in scenes_data]
+
+    return AppConfig(service=service_config, lamps=lamp_configs, scenes=scene_configs)

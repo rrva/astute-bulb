@@ -39,6 +39,20 @@ class ServiceConfig(BaseModel):
     host: str = Field(default="0.0.0.0")
     port: int = Field(default=8000)
     location: LocationConfig | None = Field(default=None)
+    hold_timeout_minutes: int = Field(
+        default=120, description="Default hold timeout for manual overrides (minutes)"
+    )
+
+
+class SceneConfig(BaseModel):
+    """Configuration for a named scene preset."""
+
+    name: str
+    brightness: int = Field(..., ge=0, le=100)
+    color_temp: int = Field(..., ge=2000, le=7000)
+    hold_minutes: int | None = Field(
+        default=None, description="Hold timeout in minutes, None = until released"
+    )
 
 
 class AppConfig(BaseModel):
@@ -46,6 +60,7 @@ class AppConfig(BaseModel):
 
     service: ServiceConfig = Field(default_factory=ServiceConfig)
     lamps: list[LampConfig] = Field(default_factory=list)
+    scenes: list[SceneConfig] = Field(default_factory=list)
 
 
 class LampState(BaseModel):
@@ -59,9 +74,9 @@ class LampState(BaseModel):
     color_temp: int | None = Field(default=None, description="Color temperature in Kelvin")
     mode: str = Field(default="white", description="Current mode: 'white' or 'colour'")
     hue: int | None = Field(default=None, ge=0, le=360, description="Hue in degrees")
-    saturation: int | None = Field(
-        default=None, ge=0, le=100, description="Saturation percentage"
-    )
+    saturation: int | None = Field(default=None, ge=0, le=100, description="Saturation percentage")
+    hold_active: bool = Field(default=False, description="Solar sync hold is active")
+    hold_reason: str | None = Field(default=None, description="Reason for hold")
 
 
 class LampListResponse(BaseModel):
@@ -91,6 +106,12 @@ class ColorRequest(BaseModel):
     brightness: int | None = Field(
         default=None, ge=0, le=100, description="Optional brightness override"
     )
+
+
+class SceneRequest(BaseModel):
+    """Request to apply a named scene."""
+
+    name: str = Field(..., description="Scene name from config")
 
 
 class CommandResponse(BaseModel):

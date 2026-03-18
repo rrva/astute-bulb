@@ -31,7 +31,7 @@ ERR914_BACKOFF_SECONDS = 600  # 10 minutes
 class LampController:
     """Controller for a single Ledvance Sun@Home lamp."""
 
-    def __init__(self, config: LampConfig):
+    def __init__(self, config: LampConfig, default_hold_timeout: float | None = 7200):
         self.config = config
         self._device: tinytuya.BulbDevice | None = None
         # Error 914 tracking
@@ -41,6 +41,11 @@ class LampController:
         self._err914_stuck_logged: bool = False
         # Last scene values sent, to skip redundant commands
         self._last_scene: tuple[int, int] | None = None  # (tuya_brightness, tuya_temp)
+        # Solar sync hold state
+        self._hold_reason: str | None = None  # "manual", "scene:dinner", etc.
+        self._hold_started: float | None = None
+        self._hold_timeout: float | None = None  # seconds, None = no auto-expire
+        self._default_hold_timeout: float | None = default_hold_timeout
 
     def _get_device(self, fresh: bool = False) -> tinytuya.BulbDevice:
         """Get or create device connection. Use fresh=True for max reliability."""
@@ -67,6 +72,73 @@ class LampController:
             except Exception:
                 pass
             self._device = None
+
+    def hold(self, reason: str, timeout: float | None = None):
+        """Activate solar sync hold.
+
+        Args:
+            reason: Why the hold was engaged (e.g. "manual", "scene:dinner").
+            timeout: Seconds until auto-expire. None means use default_hold_timeout.
+                     Pass 0 or negative to hold indefinitely (no auto-expire).
+        """
+        self._hold_reason = reason
+        self._hold_started = time.time()
+        if timeout is not None:
+            self._hold_timeout = timeout if timeout > 0 else None
+        else:
+            self._hold_timeout = self._default_hold_timeout
+        logger.info(
+            "%s hold engaged: reason=%s timeout=%s",
+            self.config.id,
+            reason,
+            f"{self._hold_timeout}s" if self._hold_timeout else "indefinite",
+        )
+
+    def release_hold(self):
+        """Release solar sync hold."""
+        if self._hold_reason is not None:
+            logger.info(
+                "%s hold released (was: %s)",
+                self.config.id,
+                self._hold_reason,
+            )
+        self._hold_reason = None
+        self._hold_started = None
+        self._hold_timeout = None
+
+    @property
+    def is_held(self) -> bool:
+        """True if hold is active and not expired."""
+        if self._hold_reason is None:
+            return False
+        if self._hold_timeout is not None and self._hold_started is not None:
+            elapsed = time.time() - self._hold_started
+            if elapsed >= self._hold_timeout:
+                logger.info(
+                    "%s hold expired after %.0fs (reason: %s)",
+                    self.config.id,
+                    elapsed,
+                    self._hold_reason,
+                )
+                self.release_hold()
+                return False
+        return True
+
+    @property
+    def hold_status(self) -> dict:
+        """Return hold state for API visibility."""
+        if not self.is_held:
+            return {"active": False}
+        elapsed = time.time() - self._hold_started if self._hold_started else 0
+        remaining = None
+        if self._hold_timeout is not None and self._hold_started is not None:
+            remaining = max(0, self._hold_timeout - elapsed)
+        return {
+            "active": True,
+            "reason": self._hold_reason,
+            "elapsed_seconds": round(elapsed, 1),
+            "remaining_seconds": round(remaining, 1) if remaining is not None else None,
+        }
 
     @staticmethod
     def _is_err914(result) -> bool:
@@ -296,6 +368,8 @@ class LampController:
                 mode=mode,
                 hue=hue,
                 saturation=saturation,
+                hold_active=self.is_held,
+                hold_reason=self._hold_reason if self.is_held else None,
             )
         except Exception as e:
             logger.exception(
@@ -307,13 +381,28 @@ class LampController:
             self._reset_connection()
             return LampState(id=self.config.id, name=self.config.name, online=False)
 
-    def turn_on_with_scene(self, brightness: int, color_temp: int, force: bool = False) -> bool:
+    def turn_on_with_scene(
+        self,
+        brightness: int,
+        color_temp: int,
+        force: bool = False,
+        source: str = "user",
+    ) -> bool:
         """Turn on lamp with specific brightness and color temperature.
 
         Skips sending if the values haven't changed since last successful send
         (unless force=True), to avoid hammering the device with redundant
         commands that can cause error 914 lockups.
+
+        Args:
+            source: "user" releases hold, "solar" skips if held, "scene" neither.
         """
+        if source == "solar" and self.is_held:
+            logger.debug("%s solar sync skipped (held: %s)", self.config.id, self._hold_reason)
+            return True
+        if source == "user":
+            self.release_hold()
+
         tuya_brightness = self._percent_to_tuya_brightness(brightness)
         tuya_temp = self._kelvin_to_tuya_temp(color_temp)
 
@@ -353,6 +442,7 @@ class LampController:
         logger.info(f"Turn off {self.config.id}: {'OK' if success else 'FAILED'}")
         if success:
             self._last_scene = None  # force scene send on next turn_on
+            self.release_hold()
         return success
 
     def set_brightness(self, brightness: int) -> bool:
@@ -367,8 +457,8 @@ class LampController:
         result = "OK" if success else "FAILED"
         logger.info(f"Set brightness {self.config.id} to {brightness}%: {result}")
         if success:
-            # Manual changes should not block the next solar scene re-assertion.
             self._last_scene = None
+            self.hold("manual")
         return success
 
     def set_color_temp(self, kelvin: int) -> bool:
@@ -383,8 +473,8 @@ class LampController:
         result = "OK" if success else "FAILED"
         logger.info(f"Set color temp {self.config.id} to {kelvin}K: {result}")
         if success:
-            # Manual changes should not block the next solar scene re-assertion.
             self._last_scene = None
+            self.hold("manual")
         return success
 
     def set_color(self, red: int, green: int, blue: int, brightness: int | None = None) -> bool:
@@ -398,8 +488,17 @@ class LampController:
         success = self._send_command("set_color", cmd)
         logger.info(f"Set color {self.config.id}: {'OK' if success else 'FAILED'}")
         if success:
-            # Manual changes should not block the next solar scene re-assertion.
             self._last_scene = None
+            self.hold("manual")
+        return success
+
+    def set_scene(
+        self, brightness: int, color_temp: int, scene_name: str, timeout: float | None = None
+    ) -> bool:
+        """Apply a named scene and engage hold."""
+        success = self.turn_on_with_scene(brightness, color_temp, force=True, source="scene")
+        if success:
+            self.hold(f"scene:{scene_name}", timeout=timeout)
         return success
 
     def close(self):
@@ -407,11 +506,14 @@ class LampController:
 
 
 class LampManager:
-    def __init__(self):
+    def __init__(self, default_hold_timeout: float | None = 7200):
         self._controllers: dict[str, LampController] = {}
+        self._default_hold_timeout = default_hold_timeout
 
     def add_lamp(self, config: LampConfig):
-        self._controllers[config.id] = LampController(config)
+        self._controllers[config.id] = LampController(
+            config, default_hold_timeout=self._default_hold_timeout
+        )
         logger.info(f"Added lamp: {config.id} ({config.name}) at {config.ip}")
 
     def get_controller(self, lamp_id: str) -> LampController | None:

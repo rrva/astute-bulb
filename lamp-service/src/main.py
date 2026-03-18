@@ -19,6 +19,8 @@ from .models import (
     CommandResponse,
     LampListResponse,
     LampState,
+    SceneConfig,
+    SceneRequest,
 )
 from .solar import get_solar_lamp_values
 
@@ -43,6 +45,7 @@ def configure_uvicorn_logging():
 # Global state
 lamp_manager: LampManager | None = None
 app_config: AppConfig | None = None
+scene_map: dict[str, SceneConfig] = {}
 
 
 SOLAR_SYNC_INTERVAL = 60  # seconds
@@ -64,7 +67,7 @@ async def solar_sync_loop():
                         continue
                     status = controller.get_status()
                     if status.online and status.power:
-                        controller.turn_on_with_scene(brightness, color_temp)
+                        controller.turn_on_with_scene(brightness, color_temp, source="solar")
                 except Exception as e:
                     logger.warning(f"Solar sync failed for {controller.config.id}: {e}")
             logger.info(f"Solar sync: {brightness}% {color_temp}K")
@@ -75,19 +78,21 @@ async def solar_sync_loop():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler."""
-    global lamp_manager, app_config
+    global lamp_manager, app_config, scene_map
 
     # Startup
     logger.info("Starting Local Lamps Service...")
     configure_uvicorn_logging()
     try:
         app_config = load_config()
-        lamp_manager = LampManager()
+        hold_timeout_seconds = app_config.service.hold_timeout_minutes * 60
+        lamp_manager = LampManager(default_hold_timeout=hold_timeout_seconds)
 
         for lamp_config in app_config.lamps:
             lamp_manager.add_lamp(lamp_config)
 
-        logger.info(f"Loaded {len(app_config.lamps)} lamp(s)")
+        scene_map = {s.name: s for s in app_config.scenes}
+        logger.info(f"Loaded {len(app_config.lamps)} lamp(s), {len(scene_map)} scene(s)")
         sync_task = asyncio.create_task(solar_sync_loop())
         logger.info("Solar sync background task started (60s interval)")
     except FileNotFoundError as e:
@@ -190,7 +195,10 @@ async def health_check():
                     "message": "Device needs physical power cycle",
                 }
             else:
-                lamps_health[ctrl.config.id] = {"status": "ok"}
+                lamp_info: dict = {"status": "ok"}
+                if ctrl.is_held:
+                    lamp_info["hold"] = ctrl.hold_status
+                lamps_health[ctrl.config.id] = lamp_info
     return {
         "status": "degraded" if any(v["status"] != "ok" for v in lamps_health.values()) else "ok",
         "lamps": lamps_health,
@@ -302,11 +310,83 @@ async def set_color(lamp_id: str, request: ColorRequest):
     )
 
 
+# Apply named scene
+@app.post("/lamps/{lamp_id}/scene", response_model=CommandResponse)
+async def apply_scene(lamp_id: str, request: SceneRequest):
+    """Apply a named scene (engages solar sync hold)."""
+    controller = get_lamp_or_404(lamp_id)
+    scene = scene_map.get(request.name)
+    if scene is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Scene '{request.name}' not found. Available: {list(scene_map.keys())}",
+        )
+    timeout = scene.hold_minutes * 60 if scene.hold_minutes is not None else None
+    success = controller.set_scene(scene.brightness, scene.color_temp, scene.name, timeout=timeout)
+
+    return CommandResponse(
+        success=success,
+        message=f"Scene '{scene.name}' applied"
+        if success
+        else f"Failed to apply scene '{scene.name}'",
+        lamp_id=lamp_id,
+        state=controller.get_status() if success else None,
+    )
+
+
+# Resume solar sync
+@app.post("/lamps/{lamp_id}/resume", response_model=CommandResponse)
+async def resume_solar(lamp_id: str):
+    """Release solar sync hold and resume circadian auto-adjust."""
+    controller = get_lamp_or_404(lamp_id)
+    controller.release_hold()
+
+    return CommandResponse(
+        success=True,
+        message="Solar sync resumed",
+        lamp_id=lamp_id,
+        state=controller.get_status(),
+    )
+
+
 # ============================================================================
 # Matterbridge Webhook Endpoints
 # These endpoints are designed to be called by matterbridge-webhooks plugin
 # They use GET requests with query parameters for easy webhook configuration
 # ============================================================================
+
+
+# "all" routes must be registered before {lamp_id} to avoid path capture.
+@app.get("/webhook/all/scene")
+async def webhook_all_scene(
+    name: str = Query(..., description="Scene name from config"),
+):
+    """Apply a named scene to all lamps (for Matterbridge)."""
+    if lamp_manager is None:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+    scene = scene_map.get(name)
+    if scene is None:
+        raise HTTPException(status_code=404, detail=f"Scene '{name}' not found")
+    timeout = scene.hold_minutes * 60 if scene.hold_minutes is not None else None
+    failed = []
+    for controller in lamp_manager.get_all_controllers():
+        if not controller.set_scene(
+            scene.brightness, scene.color_temp, scene.name, timeout=timeout
+        ):
+            failed.append(controller.config.id)
+    if failed:
+        raise HTTPException(status_code=502, detail=f"Scene failed for: {failed}")
+    return {"success": True}
+
+
+@app.get("/webhook/all/resume")
+async def webhook_all_resume():
+    """Release solar sync hold on all lamps (for Matterbridge)."""
+    if lamp_manager is None:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+    for controller in lamp_manager.get_all_controllers():
+        controller.release_hold()
+    return {"success": True}
 
 
 @app.get("/webhook/{lamp_id}/on")
@@ -410,6 +490,30 @@ async def webhook_color(
         return {"success": True}
 
     raise HTTPException(status_code=400, detail="Either RGB or HSV values required")
+
+
+@app.get("/webhook/{lamp_id}/scene")
+async def webhook_scene(
+    lamp_id: str,
+    name: str = Query(..., description="Scene name from config"),
+):
+    """Webhook endpoint to apply a named scene (for Matterbridge)."""
+    controller = get_lamp_or_404(lamp_id)
+    scene = scene_map.get(name)
+    if scene is None:
+        raise HTTPException(status_code=404, detail=f"Scene '{name}' not found")
+    timeout = scene.hold_minutes * 60 if scene.hold_minutes is not None else None
+    success = controller.set_scene(scene.brightness, scene.color_temp, scene.name, timeout=timeout)
+    raise_on_command_failure(success, lamp_id, f"apply scene '{name}'")
+    return {"success": True}
+
+
+@app.get("/webhook/{lamp_id}/resume")
+async def webhook_resume(lamp_id: str):
+    """Webhook endpoint to release solar sync hold (for Matterbridge)."""
+    controller = get_lamp_or_404(lamp_id)
+    controller.release_hold()
+    return {"success": True}
 
 
 def main():

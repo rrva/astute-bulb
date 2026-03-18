@@ -48,3 +48,24 @@ lamps:
     ip: "192.168.1.102"
     local_key: "YOUR_LOCAL_KEY_3"
     version: "3.5"
+
+# Default hold timeout for manual overrides (minutes, default: 120)
+# When a manual command (brightness, color temp, color) is sent, solar sync
+# pauses for that lamp. The hold releases on turn off, turn on, explicit
+# resume, or after this timeout.
+# hold_timeout_minutes: 120
+
+# Named scenes (override solar sync until released)
+# Triggered via /webhook/{id}/scene?name=dinner or POST /lamps/{id}/scene
+# scenes:
+#   - name: dinner
+#     brightness: 80
+#     color_temp: 3000
+#     hold_minutes: 180
+#   - name: movie
+#     brightness: 20
+#     color_temp: 2200
+#   - name: reading
+#     brightness: 100
+#     color_temp: 4500
+#     hold_minutes: 60

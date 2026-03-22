@@ -15,7 +15,10 @@
         <string>en1</string>
         <string>-ipv4address</string>
         <string>YOUR_IP</string>
+        <string>--novirtual</string>
     </array>
+    <key>UserName</key>
+    <string>YOUR_USER</string>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>

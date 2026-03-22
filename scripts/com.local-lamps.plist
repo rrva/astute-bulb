@@ -22,6 +22,8 @@
     </array>
     <key>WorkingDirectory</key>
     <string>/Users/YOUR_USER/local-lamps/lamp-service</string>
+    <key>UserName</key>
+    <string>YOUR_USER</string>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>

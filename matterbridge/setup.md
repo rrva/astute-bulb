@@ -113,35 +113,19 @@ To run Matterbridge automatically on startup:
 
 ### macOS (launchd)
 
-Create `~/Library/LaunchAgents/com.matterbridge.plist`:
+Use a LaunchDaemon (not a LaunchAgent — agents cannot be loaded over SSH on macOS Tahoe).
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.matterbridge</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/usr/local/bin/matterbridge</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>StandardOutPath</key>
-    <string>/tmp/matterbridge.log</string>
-    <key>StandardErrorPath</key>
-    <string>/tmp/matterbridge.err</string>
-</dict>
-</plist>
-```
+See `scripts/com.matterbridge.plist` for the full template. Key points:
 
-Load the service:
+- Place in `/Library/LaunchDaemons/` and load with `sudo launchctl load -w`
+- **Set `UserName`** to your user — without it, the daemon runs as root and writes root-owned files into `~/.npm`, `~/.matterbridge`, and `~/Library/Logs/`, causing permission errors on restart
+- **Use `--novirtual`** to prevent Matterbridge from exposing "Update" and "Restart" virtual outlets to Matter controllers (voice commands can accidentally trigger updates and crash the bridge)
+- Set `HOME` and `PATH` in `EnvironmentVariables` so matterbridge can find node and npm
 
 ```bash
-launchctl load ~/Library/LaunchAgents/com.matterbridge.plist
+sudo cp scripts/com.matterbridge.plist /Library/LaunchDaemons/
+# Edit the plist: replace YOUR_USER, YOUR_IP, and en1 with actual values
+sudo launchctl load -w /Library/LaunchDaemons/com.matterbridge.plist
 ```
 
 ### Linux (systemd)

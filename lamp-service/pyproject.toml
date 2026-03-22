@@ -15,6 +15,9 @@ dependencies = [
     "astral>=3.2",
 ]
 
+[project.scripts]
+lamps = "src.cli:main"
+
 [project.urls]
 Repository = "https://github.com/rrva/local-lamps"
 
